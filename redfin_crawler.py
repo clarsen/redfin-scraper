@@ -426,6 +426,9 @@ def scrape_redfin_listing(url_proxy):
                     year = int(m_year.group(1))
                 if m_lot:
                     lot = float(re.sub(r'[,]', '', m_lot.group(1)))
+                    # if lot size in acres, convert to sqft
+                    if lot < 100:
+                        lot *= 43560
                 if m_redfin_price:
                     redfin_price = int(
                         re.sub(r'[,]', '', m_redfin_price.group(1)))
