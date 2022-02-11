@@ -6,23 +6,29 @@ LOGGER = logging.getLogger(__name__)
 
 MIN_SQFT_PATTERN = r'.*min-sqft=([0-9a-zA-Z]+)-sqft.*'
 MAX_SQFT_PATTERN = r'.*max-sqft=([0-9a-zA-Z]+)-sqft.*'
-MIN_SQFT = 10
+MIN_SQFT = 1200
 MAX_SQFT = 12000
 
 MIN_PRICE_PATTERN = r'.*min-price=([0-9a-zA-Z]+).*'
 MAX_PRICE_PATTERN = r'.*max-price=([0-9a-zA-Z]+).*'
-MIN_PRICE = 1000
-MAX_PRICE = 2000000
+MIN_PRICE = 200000
+MAX_PRICE = 500000
 
 MIN_YEAR_PATTERN = r'.*min-year-built=([0-9a-zA-Z]+).*'
 MAX_YEAR_PATTERN = r'.*max-year-built=([0-9a-zA-Z]+).*'
-MIN_YEAR = 1900
-MAX_YEAR = 2018
+MIN_YEAR = 1970
+MAX_YEAR = 2021
 
-# /filter/min-price=750k,max-price=780k,min-lot-size=3k-sqft,max-lot-size=4k-sqft,include=sold-3yr
+# PROPERY_TYPE_PATTERN = r'.*property-type=([a-zA-Z]+).*'
+SOLD_PATTERN = r'.*include=sold-([0-9a-zA-Z]+).*'
+
+# Homes for sale url:
+# /filter/property-type=house,min-price=750k,max-price=780k,min-lot-size=3k-sqft,max-lot-size=4k-sqft
+# Sold homes url
+# /filter/property-type=house,min-price=750k,max-price=780k,min-lot-size=3k-sqft,max-lot-size=4k-sqft,include=sold-3yr
 # min-year-built=2016
 # min-sqft=500-sqft
-BASE_FILTERS = ['include=sold-3yr']
+BASE_FILTERS = ['property-type=house']
 
 
 class MissPriceException(Exception):
@@ -44,8 +50,9 @@ def parse_filter_params(filter_str):
     max_price_m = re.match(MAX_PRICE_PATTERN, filter_str)
     min_year_m = re.match(MIN_YEAR_PATTERN, filter_str)
     max_year_m = re.match(MAX_YEAR_PATTERN, filter_str)
+    sold_range_m = re.match(SOLD_PATTERN, filter_str)
 
-    min_sqft, max_sqft, min_price, max_price, min_year, max_year = None, None, None, None, None, None
+    min_sqft, max_sqft, min_price, max_price, min_year, max_year, sold_range = None, None, None, None, None, None, None
     if min_sqft_m:
         min_sqft = int(min_sqft_m.group(1))
     if max_sqft_m:
@@ -58,6 +65,8 @@ def parse_filter_params(filter_str):
         min_year = int(min_year_m.group(1))
     if max_year_m:
         max_year = int(max_year_m.group(1))
+    if sold_range_m:
+        sold_range = sold_range_m.group(1)
     return {
         'min_sqft': min_sqft,
         'max_sqft': max_sqft,
@@ -65,24 +74,27 @@ def parse_filter_params(filter_str):
         'max_price': max_price,
         'min_year': min_year,
         'max_year': max_year,
+        'sold_range': sold_range
     }
 
 
 def construct_filter_url(redfin_base_url, **kwargs):
     filters = BASE_FILTERS[:]
     if kwargs.get('min_price'):
-        filters.append('min-price={}'.format(kwargs['min_price']))
+        filters.append(f'min-price={kwargs["min_price"]}')
     if kwargs.get('max_price'):
-        filters.append('max-price={}'.format(kwargs['max_price']))
+        filters.append(f'max-price={kwargs["max_price"]}')
     if kwargs.get('min_sqft'):
-        filters.append('min-sqft={}-sqft'.format(kwargs['min_sqft']))
+        filters.append(f'min-sqft={kwargs["min_sqft"]}-sqft')
     if kwargs.get('max_sqft'):
-        filters.append('max-sqft={}-sqft'.format(kwargs['max_sqft']))
+        filters.append(f'max-sqft={kwargs["max_sqft"]}-sqft')
     if kwargs.get('min_year'):
-        filters.append('min-year-built={}'.format(kwargs['min_year']))
+        filters.append(f'min-year-built={kwargs["min_year"]}')
     if kwargs.get('max_year'):
-        filters.append('max-year-built={}'.format(kwargs['max_year']))
-    return '{}filter/{}'.format(redfin_base_url, ','.join(filters))
+        filters.append(f'max-year-built={kwargs["max_year"]}')
+    if kwargs.get('sold_range'):
+        filters.append(f'include=sold-{kwargs["sold_range"]}')
+    return f'{redfin_base_url}filter/{",".join(filters)}'
 
 
 def add_sqft_filters(min_sqft, max_sqft):
@@ -153,7 +165,7 @@ def apply_filters(url, redfin_base_url):
     Filter priority: price, sqft-size, year-built
     """
     if '/filter/' not in url:
-        price_filters = [(1000, 300000), (300000, 600000), (600000, 1000000), (1000000, 2000000)]
+        price_filters = [(300000, 600000)]
         return [construct_filter_url(redfin_base_url, min_price=x[0], max_price=x[1]) for x in price_filters]
 
     _, filters = url.split('/filter/')
@@ -161,7 +173,7 @@ def apply_filters(url, redfin_base_url):
     filter_params = {k: v for k, v in filter_params.items() if v is not None}
     if not filter_params:
         # Make it a bit fine-grained to take care of cities with 100k+ listings.
-        price_filters = [(1000, 300000), (300000, 600000), (600000, 1000000), (1000000, 2000000)]
+        price_filters = [(300000, 600000)]
         return [construct_filter_url(redfin_base_url, min_price=x[0], max_price=x[1]) for x in price_filters]
 
     min_price = filter_params.get('min_price')
@@ -170,11 +182,13 @@ def apply_filters(url, redfin_base_url):
     max_sqft = filter_params.get('max_sqft')
     min_year = filter_params.get('min_year')
     max_year = filter_params.get('max_year')
+    sold_range = filter_params.get('sold_range')
 
     if min_year:
         year_filters = add_year_filters(min_year, max_year)
         if len(year_filters) == 1:
-            LOGGER.warning('Reaching the finest granularity. Cannot split any more.')
+            LOGGER.warning(
+                'Reaching the finest granularity. Cannot split any more.')
             return [url]
         sub_urls = []
         for x in year_filters:
@@ -189,8 +203,10 @@ def apply_filters(url, redfin_base_url):
         else:
             sub_urls = []
             for x in sqft_filters:
-                params = {**filter_params, **{'min_sqft': x[0], 'max_sqft': x[1]}}
-                sub_urls.append(construct_filter_url(redfin_base_url, **params))
+                params = {**filter_params, **
+                          {'min_sqft': x[0], 'max_sqft': x[1]}}
+                sub_urls.append(construct_filter_url(
+                    redfin_base_url, **params))
             return sub_urls
 
     if min_price:
@@ -200,6 +216,8 @@ def apply_filters(url, redfin_base_url):
         else:
             sub_urls = []
             for x in price_filters:
-                params = {**filter_params, **{'min_price': x[0], 'max_price': x[1]}}
-                sub_urls.append(construct_filter_url(redfin_base_url, **params))
+                params = {**filter_params, **
+                          {'min_price': x[0], 'max_price': x[1]}}
+                sub_urls.append(construct_filter_url(
+                    redfin_base_url, **params))
             return sub_urls

@@ -1,0 +1,26 @@
+[{
+    "@context":"http://schema.org",
+    "name":"701 MT Shasta Dr, Vancouver, WA 98664",
+    "url":"/WA/Vancouver/701-Mt-Shasta-Dr-98664/home/14654450",
+    "address":{
+        "@type":"PostalAddress",
+        "streetAddress":"701 MT Shasta Dr",
+        "addressLocality":"Vancouver",
+        "addressRegion":"WA",
+        "postalCode":"98664",
+        "addressCountry":"US"
+    },
+    "numberOfRooms":"2",
+    "@type":"SingleFamilyResidence"
+},
+{
+    "@context":"http://schema.org",
+    "@type":"Product",
+    "name":"701 MT Shasta Dr, Vancouver, WA 98664",
+    "offers":{
+        "@type":"Offer",
+        "price":"325000",
+        "priceCurrency":"USD"
+    },
+    "url":"/WA/Vancouver/701-Mt-Shasta-Dr-98664/home/14654450"
+}]
