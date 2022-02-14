@@ -50,7 +50,10 @@ RUN \
     tabula-py \
     opencv-python \
     tqdm \
-    psycopg2-binary
+    psycopg2-binary \
+    pretty_html_table \
+    && pip install \
+    python-dotenv
 
 EXPOSE 8888
 
