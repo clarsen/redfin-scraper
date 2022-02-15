@@ -12,6 +12,7 @@ from concurrent.futures import ProcessPoolExecutor
 from bs4 import BeautifulSoup
 import sqlite3
 from datetime import date
+from dotenv import load_dotenv
 from redfin_filters import apply_filters
 
 
