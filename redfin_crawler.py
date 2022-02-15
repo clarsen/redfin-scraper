@@ -12,15 +12,19 @@ from concurrent.futures import ProcessPoolExecutor
 from bs4 import BeautifulSoup
 import sqlite3
 from datetime import date
-
 from redfin_filters import apply_filters
+
+
+load_dotenv()
 
 LOGGER = None
 HEADER = {
     'User-agent': 'Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko)'
                   ' Chrome/49.0.2623.112 Safari/537.36'
 }
-SQLITE_DB_PATH = 'redfin_scraper_data.db'
+SQLITE_DB_PATH = os.getenv('SQLITE_DB_PATH')
+DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+SQLITE_DB_FULL_PATH = f'{DIR_PATH}/{SQLITE_DB_PATH}'
 
 
 def construct_proxy(ip_addr, port, user=None, password=None):
@@ -37,7 +41,7 @@ def construct_proxy(ip_addr, port, user=None, password=None):
 
 
 def create_tables_if_not_exist():
-    conn = sqlite3.connect(SQLITE_DB_PATH)
+    conn = sqlite3.connect(SQLITE_DB_FULL_PATH)
     conn.execute('''CREATE TABLE IF NOT EXISTS URLS
              (
              URL                    TEXT    NOT NULL,
@@ -158,7 +162,7 @@ def url_partition(base_url, proxies, max_levels=6):
 
         LOGGER.info('Getting {} results'.format(len(scraper_results)))
 
-        with sqlite3.connect(SQLITE_DB_PATH) as db:
+        with sqlite3.connect(SQLITE_DB_FULL_PATH) as db:
             LOGGER.info('stage {} saving to db!'.format(num_levels))
             values = []
             for result in scraper_results:
@@ -193,7 +197,7 @@ def url_partition(base_url, proxies, max_levels=6):
 
 def parse_addresses():
     listing_details = {}
-    with sqlite3.connect(SQLITE_DB_PATH) as db:
+    with sqlite3.connect(SQLITE_DB_FULL_PATH) as db:
         cur = db.cursor()
         cur.execute("SELECT * FROM listings")
         rows = cur.fetchall()
@@ -246,7 +250,7 @@ def parse_addresses():
                     listing_details[listing_url] = (listing_url, num_rooms, name, country,
                                                     region, locality, street, postal, house_type, price)
 
-    with sqlite3.connect(SQLITE_DB_PATH) as db:
+    with sqlite3.connect(SQLITE_DB_FULL_PATH) as db:
         cursor = db.cursor()
         try:
             cursor.executemany("""
@@ -285,7 +289,7 @@ def scrape_page(url_proxy):
 def get_paginated_urls(prefix):
     # Return a set of paginated urls with at most 20 properties each.
     paginated_urls = []
-    with sqlite3.connect(SQLITE_DB_PATH) as db:
+    with sqlite3.connect(SQLITE_DB_FULL_PATH) as db:
         cursor = db.execute("""
             SELECT URL, NUM_PROPERTIES, NUM_PAGES, PER_PAGE_PROPERTIES
             FROM URLS
@@ -331,7 +335,7 @@ def crawl_redfin_with_proxies(proxies, prefix=''):
 
     LOGGER.warning('Finished scraping!')
 
-    with sqlite3.connect(SQLITE_DB_PATH) as db:
+    with sqlite3.connect(SQLITE_DB_FULL_PATH) as db:
         cursor = db.cursor()
         for result in scraper_results:
             url, info = result
@@ -347,7 +351,7 @@ def crawl_redfin_with_proxies(proxies, prefix=''):
 def get_listing_urls(prefix):
     # Return a set of paginated urls with at most 20 properties each.
     urls = []
-    with sqlite3.connect(SQLITE_DB_PATH) as db:
+    with sqlite3.connect(SQLITE_DB_FULL_PATH) as db:
         cursor = db.execute("""
             SELECT URL FROM LISTING_SHORT_DETAILS
         """)
@@ -477,7 +481,7 @@ def crawl_redfin_listings(proxies, prefix="https://redfin.com"):
     LOGGER.info('Finished scraping listings!')
     today = date.today().strftime('%Y/%m/%d')
 
-    with sqlite3.connect(SQLITE_DB_PATH) as db:
+    with sqlite3.connect(SQLITE_DB_FULL_PATH) as db:
         cursor = db.cursor()
         for result in scraper_results:
             url, info = result

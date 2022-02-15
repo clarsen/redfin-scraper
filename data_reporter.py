@@ -16,10 +16,12 @@ SQLITE_DB_PATH = os.getenv('SQLITE_DB_PATH')
 EMAIL_ACCOUNT = os.getenv('EMAIL_ACCOUNT')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 RECIPIENT_EMAIL = os.getenv('RECIPIENT_EMAIL')
+DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+SQLITE_DB_FULL_PATH = f'{DIR_PATH}/{SQLITE_DB_PATH}'
 
 
 def get_listing_data(today_filter=True):
-    conn = sqlite3.connect(SQLITE_DB_PATH)
+    conn = sqlite3.connect(SQLITE_DB_FULL_PATH)
     cur = conn.cursor()
 
     cur.execute("PRAGMA table_info(listing_full_details)")
@@ -31,7 +33,6 @@ def get_listing_data(today_filter=True):
         date_filter_str = f"AND DATE='{today}' "
 
     select_batch_query = f"SELECT * FROM listing_full_details WHERE STATUS='Active' {date_filter_str}AND NUMBER_ROOMS>=3 AND NUMBER_BATHROOMS>=1.5"
-    print(select_batch_query)
     cur.execute(select_batch_query)
     query_results = cur.fetchall()
 
@@ -123,9 +124,11 @@ def send_mail(city, body):
 
 
 def generate_listing_report():
-    listing_data = get_listing_data(False)
+    listing_data = get_listing_data(today_filter=True)
+    print('report generated')
     html_table = build_table(listing_data, 'blue_light')
     send_mail('Vancouver', html_table)
+    print('report distributed')
 
 
 generate_listing_report()
