@@ -120,3 +120,4 @@ postgres-data/
 *proxies.csv
 *proxy.csv
 __MACOSX/
+*.csv
