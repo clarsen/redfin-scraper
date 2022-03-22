@@ -154,8 +154,7 @@ def add_year_filters(min_year, max_year):
         tickers.append(max_year)
     else:
         tickers[-1] = max_year
-    year_filters = list(zip(tickers[:-1], tickers[1:]))
-    return year_filters
+    return list(zip(tickers[:-1], tickers[1:]))
 
 
 def apply_filters(url, redfin_base_url):
@@ -200,24 +199,22 @@ def apply_filters(url, redfin_base_url):
         sqft_filters = add_sqft_filters(min_sqft, max_sqft)
         if len(sqft_filters) == 1:
             return [construct_filter_url(redfin_base_url, **{**filter_params, **{'min_year': MIN_YEAR, 'max_year': MAX_YEAR}})]
-        else:
-            sub_urls = []
-            for x in sqft_filters:
-                params = {**filter_params, **
-                          {'min_sqft': x[0], 'max_sqft': x[1]}}
-                sub_urls.append(construct_filter_url(
-                    redfin_base_url, **params))
-            return sub_urls
+        sub_urls = []
+        for x in sqft_filters:
+            params = {**filter_params, **
+                      {'min_sqft': x[0], 'max_sqft': x[1]}}
+            sub_urls.append(construct_filter_url(
+                redfin_base_url, **params))
+        return sub_urls
 
     if min_price:
         price_filters = add_price_filters(min_price, max_price)
         if len(price_filters) == 1:
             return [construct_filter_url(redfin_base_url, **{**filter_params, **{'min_sqft': MIN_SQFT, 'max_sqft': 1000}}), construct_filter_url(redfin_base_url, **{**filter_params, **{'min_sqft': 1000, 'max_sqft': MAX_SQFT}})]
-        else:
-            sub_urls = []
-            for x in price_filters:
-                params = {**filter_params, **
-                          {'min_price': x[0], 'max_price': x[1]}}
-                sub_urls.append(construct_filter_url(
-                    redfin_base_url, **params))
-            return sub_urls
+        sub_urls = []
+        for x in price_filters:
+            params = {**filter_params, **
+                      {'min_price': x[0], 'max_price': x[1]}}
+            sub_urls.append(construct_filter_url(
+                redfin_base_url, **params))
+        return sub_urls

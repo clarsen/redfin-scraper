@@ -27,7 +27,7 @@ def time_proxy(ip_addr, port, proxy_user=None, proxy_pass=None,  url='https://ww
     ua = fake_useragent.UserAgent()
 
     pull_proxies = build_proxies(ip_addr, port, proxy_user, proxy_pass)
-    for i in range(TOTAL_TRIES_PER_URL):
+    for _ in range(TOTAL_TRIES_PER_URL):
         try:
             r = requests.get(url, proxies=pull_proxies, headers={'User-agent': ua.chrome}, timeout=timeout)
             if r.status_code == 200:
@@ -35,21 +35,27 @@ def time_proxy(ip_addr, port, proxy_user=None, proxy_pass=None,  url='https://ww
         except Exception as e:
             print(e)
 
-    print('for proxy {}'.format(pull_proxies))
-    print('total time {} for visiting {} times'.format(time.time() - start, TOTAL_TRIES_PER_URL))
-    print('success rate = {}'.format(success_counts / TOTAL_TRIES_PER_URL))
+    print(f'for proxy {pull_proxies}')
+    print(
+        f'total time {time.time() - start} for visiting {TOTAL_TRIES_PER_URL} times'
+    )
+
+    print(f'success rate = {success_counts / TOTAL_TRIES_PER_URL}')
 
 
 def time_no_proxy(url='https://www.google.com'):
     success_counts = 0
     start = time.time()
-    for i in range(TOTAL_TRIES_PER_URL):
+    for _ in range(TOTAL_TRIES_PER_URL):
         r = requests.get(url)
         if r.status_code == 200:
             success_counts += 1
     print('for normal request without proxies')
-    print('total time {} for visiting {} times'.format(time.time() - start, TOTAL_TRIES_PER_URL))
-    print('success rate = {}'.format(success_counts / TOTAL_TRIES_PER_URL))
+    print(
+        f'total time {time.time() - start} for visiting {TOTAL_TRIES_PER_URL} times'
+    )
+
+    print(f'success rate = {success_counts / TOTAL_TRIES_PER_URL}')
 
 
 if __name__ == '__main__':

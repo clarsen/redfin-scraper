@@ -49,7 +49,7 @@ def get_listing_data(today_filter=True):
     for c in standardizaiton_columns:
         col_range = df[c].max() - df[c].min()
         col_min = df[c].min()
-        if c == 'PRICE' or c == 'MORTGAGE':
+        if c in ['PRICE', 'MORTGAGE']:
             df['STD_' + c] = df.apply(lambda row: 1 -
                                       ((row[c] - col_min) / col_range), axis=1)
         elif c == 'LOT_SIZE':
@@ -61,7 +61,7 @@ def get_listing_data(today_filter=True):
                 lambda row: row['SQFT'] / (row['PRICE'] / 1000), axis=1)
             col_range = df[new_col].max() - df[new_col].min()
             col_min = df[new_col].min()
-            df['STD_' + new_col] = df.apply(
+            df[f'STD_{new_col}'] = df.apply(
                 lambda row: (row[new_col] - col_min) / col_range, axis=1)
         else:
             df['STD_' +
@@ -90,7 +90,7 @@ def get_listing_data(today_filter=True):
 
 def send_mail(city, body):
     message = MIMEMultipart()
-    message['Subject'] = f'House Hunt Report'
+    message['Subject'] = 'House Hunt Report'
     message['From'] = EMAIL_ACCOUNT
     message['To'] = RECIPIENT_EMAIL
 
