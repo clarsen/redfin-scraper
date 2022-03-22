@@ -108,9 +108,7 @@ def get_page_info(url_and_proxy):
             if 'of' in page_description:
                 property_cnt_pattern = r'([0-9]+) of ([0-9]+) •*'
                 property_cnt_one_page_pattern = r'([0-9]+)•*'
-                m = re.match(property_cnt_pattern, page_description)
-                # n = re.match(property_cnt_one_page_pattern, page_description)
-                if m:
+                if m := re.match(property_cnt_pattern, page_description):
                     properties_per_page = int(m.group(1))
                     total_properties = int(m.group(2))
                 # elif n:
@@ -121,13 +119,12 @@ def get_page_info(url_and_proxy):
                 num_pages = max(pages)
             else:
                 property_cnt_pattern = r'([0-9]+)•*'
-                m = re.match(property_cnt_pattern, page_description)
-                if m:
+                if m := re.match(property_cnt_pattern, page_description):
                     properties_per_page = int(m.group(1))
                     total_properties = properties_per_page
                 num_pages = 1
     except Exception as e:
-        LOGGER.exception('Swallowing exception {} on url {}'.format(e, url))
+        LOGGER.exception(f'Swallowing exception {e} on url {url}')
     return (url, total_properties, num_pages, properties_per_page)
 
 
@@ -162,13 +159,13 @@ def url_partition(base_url, proxies, max_levels=6):
             scraper_results = list(executor.map(
                 get_page_info, partition_inputs))
 
-        LOGGER.info('Getting {} results'.format(len(scraper_results)))
+        LOGGER.info(f'Getting {len(scraper_results)} results')
 
         with sqlite3.connect(SQLITE_DB_FULL_PATH) as db:
-            LOGGER.info('stage {} saving to db!'.format(num_levels))
+            LOGGER.info(f'stage {num_levels} saving to db!')
             values = []
             for result in scraper_results:
-                to_nulls = [x if x else 'NULL' for x in result]
+                to_nulls = [x or 'NULL' for x in result]
                 values.append("('{}', {}, {}, {})".format(*to_nulls))
             cursor = db.cursor()
             cursor.execute("""
@@ -176,21 +173,22 @@ def url_partition(base_url, proxies, max_levels=6):
                 VALUES {};
             """.format(','.join(values)))
 
-        LOGGER.info('Writing to sqlite {} results'.format(
-            len(scraper_results)))
+        LOGGER.info(f'Writing to sqlite {len(scraper_results)} results')
         new_urls = []
         for result in scraper_results:
             if (result[1] and result[2] and result[3] and result[1] > result[2] * result[3]) or (num_levels == 0):
                 print("result", result, "base", base_url)
                 expanded_urls = apply_filters(result[0], base_url)
                 if len(expanded_urls) == 1 and expanded_urls[0] == result[0]:
-                    LOGGER.info('Cannot further split {}'.format(result[0]))
+                    LOGGER.info(f'Cannot further split {result[0]}')
                 else:
                     new_urls.extend(expanded_urls)
             else:
                 partitioned_urls.append(result)
-        LOGGER.info('stage {}: running for {} urls. We already captured {} urls'.format(
-            num_levels, len(new_urls), len(partitioned_urls)))
+        LOGGER.info(
+            f'stage {num_levels}: running for {len(new_urls)} urls. We already captured {len(partitioned_urls)} urls'
+        )
+
         urls = new_urls
         num_levels += 1
         time.sleep(random.randint(2, 5))
@@ -284,7 +282,7 @@ def scrape_page(url_proxy):
         details = [json.loads(x.text) for x in bf.find_all(
             'script', type='application/ld+json')]
     except Exception as e:
-        LOGGER.exception('failed for url {}, proxy {}'.format(url, proxy))
+        LOGGER.exception(f'failed for url {url}, proxy {proxy}')
     return url, json.dumps(details)
 
 
@@ -309,11 +307,10 @@ def get_paginated_urls(prefix):
             if not num_pages:
                 urls = [url]
             elif (not num_properties) and int(num_pages) == 1 and per_page_properties:
-                urls = ['{},sort=lo-price/page-1'.format(url)]
+                urls = [f'{url},sort=lo-price/page-1']
             elif num_properties < num_pages * per_page_properties:
                 # Build per page urls.
-                urls = [
-                    '{},sort=lo-price/page-{}'.format(url, p) for p in range(1, num_pages + 1)]
+                urls = [f'{url},sort=lo-price/page-{p}' for p in range(1, num_pages + 1)]
             paginated_urls.extend(urls)
     return list(set(paginated_urls))
 
@@ -346,7 +343,7 @@ def crawl_redfin_with_proxies(proxies, prefix=''):
                     INSERT INTO LISTINGS (URL, INFO)
                     VALUES (?, ?)""", (url, info))
             except Exception as e:
-                LOGGER.info('failed record: {}'.format(result))
+                LOGGER.info(f'failed record: {result}')
                 LOGGER.info(e)
 
 
@@ -357,9 +354,7 @@ def get_listing_urls(prefix):
         cursor = db.execute("""
             SELECT URL FROM LISTING_SHORT_DETAILS
         """)
-        for row in cursor:
-            urls.append(prefix + row[0])
-
+        urls.extend(prefix + row[0] for row in cursor)
         return urls
 
 
@@ -373,9 +368,9 @@ def scrape_redfin_listing(url_proxy):
         session = requests.Session()
         resp = session.get(url, headers=HEADER, proxies=proxy)
         bf = BeautifulSoup(resp.text, 'lxml')
-        home_main_stats_div = bf.find(
-            'div', {'class': 'home-main-stats-variant'})
-        if home_main_stats_div:
+        if home_main_stats_div := bf.find(
+            'div', {'class': 'home-main-stats-variant'}
+        ):
             price_div = home_main_stats_div.find(
                 'div', {'data-rf-test-id': 'abp-price'})
             beds_div = home_main_stats_div.find(
@@ -405,8 +400,7 @@ def scrape_redfin_listing(url_proxy):
             if m_sqft:
                 sqft = int(re.sub(r'[,]', '', m_sqft.group(1)))
 
-        page_content_div = bf.find('div', {'class': 'content clear-fix'})
-        if page_content_div:
+        if page_content_div := bf.find('div', {'class': 'content clear-fix'}):
             status_pattern = r'Status([a-zA-Z]+)*'
             time_on_redfin_pattern = r'Time on Redfin([0-9]+)*'
             year_built_pattern = r'Year Built([0-9]+)*'
@@ -441,17 +435,16 @@ def scrape_redfin_listing(url_proxy):
                 if m_sqft_price:
                     sqft_price = int(re.sub(r'[,]', '', m_sqft_price.group(1)))
 
-        calculator_summary_div = bf.find('div', {'class': 'CalculatorSummary'})
-
-        if calculator_summary_div:
+        if calculator_summary_div := bf.find(
+            'div', {'class': 'CalculatorSummary'}
+        ):
             mortgage_text = calculator_summary_div.get_text()
             mortgage_pattern = r'\$([0-9,]+)* per month'
-            m_mortgage = re.match(mortgage_pattern, mortgage_text)
-            if m_mortgage:
+            if m_mortgage := re.match(mortgage_pattern, mortgage_text):
                 mortgage = int(re.sub(r'[,]', '', m_mortgage.group(1)))
 
     except Exception as e:
-        LOGGER.exception('failed for url {}, proxy {}'.format(url, proxy))
+        LOGGER.exception(f'failed for url {url}, proxy {proxy}')
 
     return url, (status, price, num_beds, num_baths,
                  sqft, time_on, year, lot,
@@ -513,7 +506,7 @@ def crawl_redfin_listings(proxies, prefix="https://redfin.com"):
                                 num_beds, num_baths, sqft, time_on,
                                 year, lot, redfin_price, sqft_price, mortgage))
             except Exception as e:
-                LOGGER.info('failed record: {}'.format(result))
+                LOGGER.info(f'failed record: {result}')
                 LOGGER.info(e)
 
 
@@ -573,4 +566,4 @@ if __name__ == '__main__':
     elif args.type == 'filtered_properties':
         crawl_redfin_with_proxies(proxies, args.property_prefix)
     else:
-        raise Exception('Unknown type {}'.format(args.type))
+        raise Exception(f'Unknown type {args.type}')
